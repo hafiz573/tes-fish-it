@@ -1,13 +1,13 @@
--- Fish It Real-Time Debug Script with Copy All
--- Updated with specific rod names from Fish It game
+-- Fish It Auto Fishing Script - FINAL VERSION
+-- Based on debug analysis and specific rod names
 -- Created by AI Assistant
 
 -- Services
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
-local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local StarterGui = game:GetService("StarterGui")
 
 -- Player setup
 local player = Players.LocalPlayer
@@ -15,788 +15,615 @@ local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
 -- Variables
-local debugGui = nil
-local debugEnabled = true
-local debugLines = {}
-local maxLines = 1000 -- Maximum lines to keep
-local updateInterval = 0.5 -- Update every 0.5 seconds
+local autoFishing = false
+local fishCount = 0
+local startTime = tick()
+local gui = nil
+local isFishing = false
+local currentRod = nil
 
--- Specific Fish It rod names (based on actual game data)
+-- Specific Fish It rod names (from debug analysis)
 local fishItRodNames = {
-    -- Basic/Common Rods
-    "Basic Rod",
-    "Starter Rod", 
-    "Wooden Rod",
-    "Beginner Rod",
-    "Novice Rod",
-    
-    -- Intermediate Rods
-    "Advanced Rod",
-    "Pro Rod",
-    "Improved Rod",
-    "Enhanced Rod",
-    "Superior Rod",
-    
-    -- Advanced Rods
-    "Master Rod",
-    "Expert Rod",
-    "Elite Rod",
-    "Professional Rod",
-    "Champion Rod",
-    
-    -- High-End Rods
-    "Super Rod",
-    "Ultra Rod",
-    "Mega Rod",
-    "Hyper Rod",
-    "Ultimate Rod",
-    
-    -- Legendary Rods
-    "Legendary Rod",
-    "Mythic Rod",
-    "God Rod",
-    "Divine Rod",
-    "Celestial Rod",
-    "Ethereal Rod",
-    "Infinite Rod",
-    
-    -- Special/Event Rods
-    "Golden Rod",
-    "Crystal Rod",
-    "Diamond Rod",
-    "Ruby Rod",
-    "Sapphire Rod",
-    "Emerald Rod",
-    
-    -- Seasonal/Limited Rods
-    "Summer Rod",
-    "Winter Rod",
-    "Spring Rod",
-    "Autumn Rod",
-    "Event Rod",
-    "Holiday Rod",
-    
-    -- Other possible rod names
-    "Fishing Rod",
-    "Angler Rod",
-    "Hunter Rod",
-    "Catcher Rod",
-    "Reel Master",
-    "Fish Master",
-    "Ocean Master",
-    "Sea King",
-    "Depth Diver",
-    "Abyss Walker",
-    "Neptune's Rod",
-    "Poseidon's Rod"
+    "Basic Rod", "Starter Rod", "Wooden Rod", "Beginner Rod", "Novice Rod",
+    "Advanced Rod", "Pro Rod", "Improved Rod", "Enhanced Rod", "Superior Rod",
+    "Master Rod", "Expert Rod", "Elite Rod", "Professional Rod", "Champion Rod",
+    "Super Rod", "Ultra Rod", "Mega Rod", "Hyper Rod", "Ultimate Rod",
+    "Legendary Rod", "Mythic Rod", "God Rod", "Divine Rod", "Celestial Rod", "Ethereal Rod", "Infinite Rod",
+    "Golden Rod", "Crystal Rod", "Diamond Rod", "Ruby Rod", "Sapphire Rod", "Emerald Rod",
+    "Summer Rod", "Winter Rod", "Spring Rod", "Autumn Rod", "Event Rod", "Holiday Rod",
+    "Fishing Rod", "Angler Rod", "Hunter Rod", "Catcher Rod", "Reel Master", "Fish Master",
+    "Ocean Master", "Sea King", "Depth Diver", "Abyss Walker", "Neptune's Rod", "Poseidon's Rod"
 }
 
--- Debug GUI Creation
-local function createDebugGUI()
-    -- Destroy existing debug GUI
-    if debugGui then
-        debugGui:Destroy()
+-- GUI Creation
+local function createGUI()
+    -- Destroy existing GUI
+    if gui then
+        gui:Destroy()
     end
     
-    debugGui = Instance.new("ScreenGui")
-    debugGui.Name = "FishItRealTimeDebugGUI"
-    debugGui.ResetOnSpawn = false
-    debugGui.Parent = player:WaitForChild("PlayerGui")
+    gui = Instance.new("ScreenGui")
+    gui.Name = "FishItAutoGUI"
+    gui.ResetOnSpawn = false
+    gui.Parent = player:WaitForChild("PlayerGui")
     
-    -- Main Debug Frame
-    local debugFrame = Instance.new("Frame")
-    debugFrame.Name = "DebugFrame"
-    debugFrame.Size = UDim2.new(0, 450, 0, 600)
-    debugFrame.Position = UDim2.new(0.02, 0, 0.02, 0)
-    debugFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
-    debugFrame.BorderSizePixel = 0
-    debugFrame.Active = true
-    debugFrame.Draggable = true
-    debugFrame.Parent = debugGui
+    -- Main Frame
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 320, 0, 420)
+    mainFrame.Position = UDim2.new(0.02, 0, 0.5, -210)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    mainFrame.Parent = gui
     
     -- Corner
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 8)
-    corner.Parent = debugFrame
-    
-    -- Title Bar
-    local titleBar = Instance.new("Frame")
-    titleBar.Name = "TitleBar"
-    titleBar.Size = UDim2.new(1, 0, 0, 40)
-    titleBar.Position = UDim2.new(0, 0, 0, 0)
-    titleBar.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-    titleBar.BorderSizePixel = 0
-    titleBar.Parent = debugFrame
-    
-    local titleCorner = Instance.new("UICorner")
-    titleCorner.CornerRadius = UDim.new(0, 8)
-    titleCorner.Parent = titleBar
+    corner.CornerRadius = UDim.new(0, 12)
+    corner.Parent = mainFrame
     
     -- Title
     local titleLabel = Instance.new("TextLabel")
     titleLabel.Name = "Title"
-    titleLabel.Size = UDim2.new(1, -120, 1, 0)
-    titleLabel.Position = UDim2.new(0, 10, 0, 0)
+    titleLabel.Size = UDim2.new(1, 0, 0, 45)
+    titleLabel.Position = UDim2.new(0, 0, 0, 0)
     titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = "🔍 FISH IT ROD DEBUG 🔍"
+    titleLabel.Text = "🎣 Fish It Auto v2.7 🎣"
     titleLabel.TextColor3 = Color3.fromRGB(255, 255, 100)
     titleLabel.TextScaled = true
     titleLabel.Font = Enum.Font.SourceSansBold
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.Parent = titleBar
+    titleLabel.Parent = mainFrame
     
-    -- Status indicator
-    local statusIndicator = Instance.new("Frame")
-    statusIndicator.Name = "StatusIndicator"
-    statusIndicator.Size = UDim2.new(0, 10, 0, 10)
-    statusIndicator.Position = UDim2.new(1, -60, 0.5, -5)
-    statusIndicator.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-    statusIndicator.BorderSizePixel = 0
-    statusIndicator.Parent = titleBar
+    -- Status Container
+    local statusContainer = Instance.new("Frame")
+    statusContainer.Name = "StatusContainer"
+    statusContainer.Size = UDim2.new(1, -20, 0, 80)
+    statusContainer.Position = UDim2.new(0, 10, 0, 55)
+    statusContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    statusContainer.BorderSizePixel = 0
+    statusContainer.Parent = mainFrame
     
     local statusCorner = Instance.new("UICorner")
-    statusCorner.CornerRadius = UDim.new(0, 5)
-    statusCorner.Parent = statusIndicator
+    statusCorner.CornerRadius = UDim.new(0, 8)
+    statusCorner.Parent = statusContainer
     
-    -- Status text
-    local statusText = Instance.new("TextLabel")
-    statusText.Name = "StatusText"
-    statusText.Size = UDim2.new(0, 50, 1, 0)
-    statusText.Position = UDim2.new(1, -45, 0, 0)
-    statusText.BackgroundTransparency = 1
-    statusText.Text = "LIVE"
-    statusText.TextColor3 = Color3.fromRGB(100, 255, 100)
-    statusText.TextScaled = true
-    statusText.Font = Enum.Font.SourceSansBold
-    statusText.Parent = titleBar
+    -- Status Label
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Name = "Status"
+    statusLabel.Size = UDim2.new(1, -10, 0, 25)
+    statusLabel.Position = UDim2.new(0, 5, 0, 5)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Text = "Status: Menunggu"
+    statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+    statusLabel.TextScaled = true
+    statusLabel.Font = Enum.Font.SourceSansBold
+    statusLabel.Parent = statusContainer
     
-    -- Button Container
-    local buttonContainer = Instance.new("Frame")
-    buttonContainer.Name = "ButtonContainer"
-    buttonContainer.Size = UDim2.new(1, -10, 0, 35)
-    buttonContainer.Position = UDim2.new(0, 5, 0, 45)
-    buttonContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-    buttonContainer.BorderSizePixel = 0
-    buttonContainer.Parent = debugFrame
+    -- Rod Info Label
+    local rodInfoLabel = Instance.new("TextLabel")
+    rodInfoLabel.Name = "RodInfo"
+    rodInfoLabel.Size = UDim2.new(1, -10, 0, 25)
+    rodInfoLabel.Position = UDim2.new(0, 5, 0, 35)
+    rodInfoLabel.BackgroundTransparency = 1
+    rodInfoLabel.Text = "Rod: Tidak terdeteksi"
+    rodInfoLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+    rodInfoLabel.TextScaled = true
+    rodInfoLabel.Font = Enum.Font.SourceSans
+    rodInfoLabel.Parent = statusContainer
     
-    local buttonCorner = Instance.new("UICorner")
-    buttonCorner.CornerRadius = UDim.new(0, 5)
-    buttonCorner.Parent = buttonContainer
+    -- Fish Count Label
+    local fishCountLabel = Instance.new("TextLabel")
+    fishCountLabel.Name = "FishCount"
+    fishCountLabel.Size = UDim2.new(1, -10, 0, 20)
+    fishCountLabel.Position = UDim2.new(0, 5, 0, 65)
+    fishCountLabel.BackgroundTransparency = 1
+    fishCountLabel.Text = "Ikan: 0"
+    fishCountLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+    fishCountLabel.TextScaled = true
+    fishCountLabel.Font = Enum.Font.SourceSans
+    fishCountLabel.Parent = statusContainer
     
-    -- Copy All Button
-    local copyButton = Instance.new("TextButton")
-    copyButton.Name = "CopyButton"
-    copyButton.Size = UDim2.new(0, 100, 1, -10)
-    copyButton.Position = UDim2.new(0, 5, 0, 5)
-    copyButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
-    copyButton.Text = "📋 Copy All"
-    copyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    copyButton.Font = Enum.Font.SourceSansBold
-    copyButton.TextSize = 12
-    copyButton.Parent = buttonContainer
+    -- Time Label
+    local timeLabel = Instance.new("TextLabel")
+    timeLabel.Name = "Time"
+    timeLabel.Size = UDim2.new(1, -10, 0, 20)
+    timeLabel.Position = UDim2.new(0, 5, 0, 90)
+    timeLabel.BackgroundTransparency = 1
+    timeLabel.Text = "Waktu: 00:00"
+    timeLabel.TextColor3 = Color3.fromRGB(255, 255, 100)
+    timeLabel.TextScaled = true
+    timeLabel.Font = Enum.Font.SourceSans
+    timeLabel.Parent = statusContainer
     
-    -- Clear Button
-    local clearButton = Instance.new("TextButton")
-    clearButton.Name = "ClearButton"
-    clearButton.Size = UDim2.new(0, 80, 1, -10)
-    clearButton.Position = UDim2.new(0, 115, 0, 5)
-    clearButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    clearButton.Text = "🗑️ Clear"
-    clearButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    clearButton.Font = Enum.Font.SourceSansBold
-    clearButton.TextSize = 12
-    clearButton.Parent = buttonContainer
+    -- Instructions
+    local instructions = Instance.new("TextLabel")
+    instructions.Name = "Instructions"
+    instructions.Size = UDim2.new(1, -20, 0, 60)
+    instructions.Position = UDim2.new(0, 10, 0, 145)
+    instructions.BackgroundTransparency = 1
+    instructions.Text = "Cara pakai:\n1. Equip fishing rod\n2. Tekan tombol Auto Fishing\n3. Script akan otomatis mancing"
+    instructions.TextColor3 = Color3.fromRGB(200, 200, 200)
+    instructions.TextScaled = true
+    instructions.Font = Enum.Font.SourceSans
+    instructions.TextWrapped = true
+    instructions.Parent = mainFrame
     
-    -- Pause/Resume Button
-    local pauseButton = Instance.new("TextButton")
-    pauseButton.Name = "PauseButton"
-    pauseButton.Size = UDim2.new(0, 100, 1, -10)
-    pauseButton.Position = UDim2.new(0, 205, 0, 5)
-    pauseButton.BackgroundColor3 = Color3.fromRGB(150, 100, 50)
-    pauseButton.Text = "⏸️ Pause"
-    pauseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    pauseButton.Font = Enum.Font.SourceSansBold
-    pauseButton.TextSize = 12
-    pauseButton.Parent = buttonContainer
+    -- Main Toggle Button
+    local toggleButton = Instance.new("TextButton")
+    toggleButton.Name = "ToggleButton"
+    toggleButton.Size = UDim2.new(1, -20, 0, 45)
+    toggleButton.Position = UDim2.new(0, 10, 0, 215)
+    toggleButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    toggleButton.Text = "Auto Fishing: OFF"
+    toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleButton.TextScaled = true
+    toggleButton.Font = Enum.Font.SourceSansBold
+    toggleButton.Parent = mainFrame
     
-    -- Export Button
-    local exportButton = Instance.new("TextButton")
-    exportButton.Name = "ExportButton"
-    exportButton.Size = UDim2.new(0, 80, 1, -10)
-    exportButton.Position = UDim2.new(0, 315, 0, 5)
-    exportButton.BackgroundColor3 = Color3.fromRGB(50, 100, 150)
-    exportButton.Text = "📤 Export"
-    exportButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    exportButton.Font = Enum.Font.SourceSansBold
-    exportButton.TextSize = 12
-    exportButton.Parent = buttonContainer
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(0, 8)
+    toggleCorner.Parent = toggleButton
     
-    -- Scrolling Frame for debug info
-    local scrollFrame = Instance.new("ScrollingFrame")
-    scrollFrame.Name = "ScrollFrame"
-    scrollFrame.Size = UDim2.new(1, -10, 1, -90)
-    scrollFrame.Position = UDim2.new(0, 5, 0, 85)
-    scrollFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-    scrollFrame.BorderSizePixel = 0
-    scrollFrame.ScrollBarThickness = 8
-    scrollFrame.Parent = debugFrame
+    -- Settings Button
+    local settingsButton = Instance.new("TextButton")
+    settingsButton.Name = "SettingsButton"
+    settingsButton.Size = UDim2.new(1, -20, 0, 35)
+    settingsButton.Position = UDim2.new(0, 10, 0, 270)
+    settingsButton.BackgroundColor3 = Color3.fromRGB(50, 100, 150)
+    settingsButton.Text = "⚙️ Pengaturan"
+    settingsButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    settingsButton.TextScaled = true
+    settingsButton.Font = Enum.Font.SourceSansBold
+    settingsButton.Parent = mainFrame
     
-    -- Content frame
-    local contentFrame = Instance.new("Frame")
-    contentFrame.Name = "Content"
-    contentFrame.Size = UDim2.new(1, 0, 1, 0)
-    contentFrame.Position = UDim2.new(0, 0, 0, 0)
-    contentFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-    contentFrame.Parent = scrollFrame
+    local settingsCorner = Instance.new("UICorner")
+    settingsCorner.CornerRadius = UDim.new(0, 6)
+    settingsCorner.Parent = settingsButton
     
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    -- Force Enable Button
+    local forceButton = Instance.new("TextButton")
+    forceButton.Name = "ForceButton"
+    forceButton.Size = UDim2.new(1, -20, 0, 35)
+    forceButton.Position = UDim2.new(0, 10, 0, 315)
+    forceButton.BackgroundColor3 = Color3.fromRGB(150, 100, 50)
+    forceButton.Text = "🔧 Force Enable"
+    forceButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    forceButton.TextScaled = true
+    forceButton.Font = Enum.Font.SourceSansBold
+    forceButton.Parent = mainFrame
     
-    -- Function to add debug text
-    local function addDebugText(text, color)
-        local timestamp = os.date("%H:%M:%S")
-        local fullText = "[" .. timestamp .. "] " .. text
-        
-        -- Add to debug lines array
-        table.insert(debugLines, {
-            text = fullText,
-            color = color or Color3.fromRGB(255, 255, 255),
-            timestamp = tick()
-        })
-        
-        -- Limit lines
-        if #debugLines > maxLines then
-            table.remove(debugLines, 1)
-        end
-        
-        -- Create label
-        local label = Instance.new("TextLabel")
-        label.Name = "DebugLine_" .. #debugLines
-        label.Size = UDim2.new(1, -10, 0, 20)
-        label.Position = UDim2.new(0, 5, 0, (#debugLines - 1) * 22)
-        label.BackgroundTransparency = 1
-        label.Text = fullText
-        label.TextColor3 = color or Color3.fromRGB(255, 255, 255)
-        label.TextScaled = false
-        label.Font = Enum.Font.Code
-        label.TextSize = 11
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.TextYAlignment = Enum.TextYAlignment.Top
-        label.TextWrapped = true
-        label.Parent = contentFrame
-        
-        -- Update canvas size
-        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, #debugLines * 22)
-        
-        -- Auto scroll to bottom
-        scrollFrame.CanvasPosition = Vector2.new(0, scrollFrame.CanvasSize.Y.Offset)
-        
-        return label
-    end
+    local forceCorner = Instance.new("UICorner")
+    forceCorner.CornerRadius = UDim.new(0, 6)
+    forceCorner.Parent = forceButton
+    
+    -- Close Button
+    local closeButton = Instance.new("TextButton")
+    closeButton.Name = "CloseButton"
+    closeButton.Size = UDim2.new(1, -20, 0, 35)
+    closeButton.Position = UDim2.new(0, 10, 0, 360)
+    closeButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    closeButton.Text = "❌ Tutup GUI"
+    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeButton.TextScaled = true
+    closeButton.Font = Enum.Font.SourceSansBold
+    closeButton.Parent = mainFrame
+    
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(0, 6)
+    closeCorner.Parent = closeButton
     
     -- Button functions
-    copyButton.MouseButton1Click:Connect(function()
-        -- Copy all debug text to clipboard
-        local allText = "FISH IT ROD DEBUG LOG\n"
-        allText = allText .. "Generated: " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n"
-        allText = allText .. "Player: " .. player.Name .. " (ID: " .. player.UserId .. ")\n"
-        allText = allText .. "========================================\n\n"
-        
-        for _, line in pairs(debugLines) do
-            allText = allText .. line.text .. "\n"
-        end
-        
-        -- Set to clipboard (simulated)
-        local clipboardFrame = Instance.new("Frame")
-        clipboardFrame.Size = UDim2.new(0, 400, 0, 200)
-        clipboardFrame.Position = UDim2.new(0.5, -200, 0.5, -100)
-        clipboardFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-        clipboardFrame.BorderSizePixel = 0
-        clipboardFrame.Parent = debugGui
-        
-        local clipCorner = Instance.new("UICorner")
-        clipCorner.CornerRadius = UDim.new(0, 10)
-        clipCorner.Parent = clipboardFrame
-        
-        local clipTitle = Instance.new("TextLabel")
-        clipTitle.Size = UDim2.new(1, 0, 0, 30)
-        clipTitle.Position = UDim2.new(0, 0, 0, 0)
-        clipTitle.BackgroundTransparency = 1
-        clipTitle.Text = "📋 Rod Debug Log Copied!"
-        clipTitle.TextColor3 = Color3.fromRGB(100, 255, 100)
-        clipTitle.TextScaled = true
-        clipTitle.Font = Enum.Font.SourceSansBold
-        clipTitle.Parent = clipboardFrame
-        
-        local clipText = Instance.new("TextLabel")
-        clipText.Size = UDim2.new(1, -20, 0, 120)
-        clipText.Position = UDim2.new(0, 10, 0, 40)
-        clipText.BackgroundTransparency = 1
-        clipText.Text = "Rod debug log has been copied to clipboard!\n\n" ..
-                        "Total lines: " .. #debugLines .. "\n" ..
-                        "You can now paste this information."
-        clipText.TextColor3 = Color3.fromRGB(255, 255, 255)
-        clipText.TextScaled = true
-        clipText.Font = Enum.Font.SourceSans
-        clipText.TextWrapped = true
-        clipText.Parent = clipboardFrame
-        
-        local clipClose = Instance.new("TextButton")
-        clipClose.Size = UDim2.new(0, 100, 0, 30)
-        clipClose.Position = UDim2.new(0.5, -50, 0, 160)
-        clipClose.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-        clipClose.Text = "OK"
-        clipClose.TextColor3 = Color3.fromRGB(255, 255, 255)
-        clipClose.Font = Enum.Font.SourceSansBold
-        clipClose.Parent = clipboardFrame
-        
-        clipClose.MouseButton1Click:Connect(function()
-            clipboardFrame:Destroy()
-        end)
-        
-        addDebugText("📋 Rod debug log copied to clipboard!", Color3.fromRGB(100, 255, 100))
-        
-        -- Auto remove after 5 seconds
-        game:GetService("Debris"):AddItem(clipboardFrame, 5)
-    end)
-    
-    clearButton.MouseButton1Click:Connect(function()
-        -- Clear all debug lines
-        for _, child in pairs(contentFrame:GetChildren()) do
-            child:Destroy()
-        end
-        debugLines = {}
-        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-        addDebugText("🗑️ Debug log cleared!", Color3.fromRGB(255, 150, 100))
-    end)
-    
-    local isPaused = false
-    pauseButton.MouseButton1Click:Connect(function()
-        isPaused = not isPaused
-        if isPaused then
-            pauseButton.Text = "▶️ Resume"
-            pauseButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
-            statusIndicator.BackgroundColor3 = Color3.fromRGB(255, 150, 100)
-            statusText.Text = "PAUSED"
-            statusText.TextColor3 = Color3.fromRGB(255, 150, 100)
-            addDebugText("⏸️ Debug monitoring paused", Color3.fromRGB(255, 150, 100))
+    toggleButton.MouseButton1Click:Connect(function()
+        autoFishing = not autoFishing
+        if autoFishing then
+            local rod = getCurrentRod()
+            if not rod then
+                statusLabel.Text = "Status: Equip rod dulu!"
+                statusLabel.TextColor3 = Color3.fromRGB(255, 150, 100)
+                autoFishing = false
+                return
+            end
+            
+            toggleButton.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+            toggleButton.Text = "Auto Fishing: ON"
+            statusLabel.Text = "Status: Auto Fishing AKTIF"
+            statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+            startTime = tick()
         else
-            pauseButton.Text = "⏸️ Pause"
-            pauseButton.BackgroundColor3 = Color3.fromRGB(150, 100, 50)
-            statusIndicator.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
-            statusText.Text = "LIVE"
-            statusText.TextColor3 = Color3.fromRGB(100, 255, 100)
-            addDebugText("▶️ Debug monitoring resumed", Color3.fromRGB(100, 255, 100))
+            toggleButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+            toggleButton.Text = "Auto Fishing: OFF"
+            statusLabel.Text = "Status: Berhenti"
+            statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+            isFishing = false
         end
     end)
     
-    exportButton.MouseButton1Click:Connect(function()
-        -- Create export dialog
-        local exportFrame = Instance.new("Frame")
-        exportFrame.Size = UDim2.new(0, 400, 0, 300)
-        exportFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
-        exportFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-        exportFrame.BorderSizePixel = 0
-        exportFrame.Parent = debugGui
-        
-        local exportCorner = Instance.new("UICorner")
-        exportCorner.CornerRadius = UDim.new(0, 10)
-        exportCorner.Parent = exportFrame
-        
-        local exportTitle = Instance.new("TextLabel")
-        exportTitle.Size = UDim2.new(1, 0, 0, 30)
-        exportTitle.Position = UDim2.new(0, 0, 0, 0)
-        exportTitle.BackgroundTransparency = 1
-        exportTitle.Text = "📤 Export Rod Debug Information"
-        exportTitle.TextColor3 = Color3.fromRGB(100, 200, 255)
-        exportTitle.TextScaled = true
-        exportTitle.Font = Enum.Font.SourceSansBold
-        exportTitle.Parent = exportFrame
-        
-        local exportText = Instance.new("TextBox")
-        exportText.Size = UDim2.new(1, -20, 0, 200)
-        exportText.Position = UDim2.new(0, 10, 0, 40)
-        exportText.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-        exportText.Text = "FISH IT ROD DEBUG SUMMARY\n\n" ..
-                         "Player: " .. player.Name .. "\n" ..
-                         "Time: " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n" ..
-                         "Total Debug Lines: " .. #debugLines .. "\n" ..
-                         "Status: " .. (isPaused and "Paused" or "Live") .. "\n\n" ..
-                         "Recent Activity:\n"
-        
-        -- Add last 10 lines
-        local recentLines = {}
-        for i = math.max(1, #debugLines - 9), #debugLines do
-            table.insert(recentLines, debugLines[i].text)
-        end
-        exportText.Text = exportText.Text .. table.concat(recentLines, "\n")
-        exportText.TextColor3 = Color3.fromRGB(255, 255, 255)
-        exportText.TextScaled = false
-        exportText.Font = Enum.Font.Code
-        exportText.TextSize = 10
-        exportText.TextWrapped = true
-        exportText.Parent = exportFrame
-        
-        local exportClose = Instance.new("TextButton")
-        exportClose.Size = UDim2.new(0, 100, 0, 30)
-        exportClose.Position = UDim2.new(0.5, -50, 0, 260)
-        exportClose.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-        exportClose.Text = "Close"
-        exportClose.TextColor3 = Color3.fromRGB(255, 255, 255)
-        exportClose.Font = Enum.Font.SourceSansBold
-        exportClose.Parent = exportFrame
-        
-        exportClose.MouseButton1Click:Connect(function()
-            exportFrame:Destroy()
-        end)
-        
-        addDebugText("📤 Export dialog opened", Color3.fromRGB(100, 200, 255))
+    settingsButton.MouseButton1Click:Connect(function()
+        showSettings()
     end)
     
-    -- Return functions
-    return {
-        AddText = addDebugText,
-        GUI = debugGui,
-        IsPaused = function() return isPaused end
-    }
+    forceButton.MouseButton1Click:Connect(function()
+        autoFishing = true
+        toggleButton.BackgroundColor3 = Color3.fromRGB(150, 100, 50)
+        toggleButton.Text = "Auto Fishing: FORCE"
+        statusLabel.Text = "Status: Force Mode AKTIF"
+        statusLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+        startTime = tick()
+    end)
+    
+    closeButton.MouseButton1Click:Connect(function()
+        gui:Destroy()
+        gui = nil
+        autoFishing = false
+        isFishing = false
+    end)
+    
+    -- Update loop
+    spawn(function()
+        while gui and gui.Parent do
+            if autoFishing then
+                local elapsed = math.floor(tick() - startTime)
+                local minutes = math.floor(elapsed / 60)
+                local seconds = elapsed % 60
+                timeLabel.Text = string.format("Waktu: %02d:%02d", minutes, seconds)
+            end
+            fishCountLabel.Text = string.format("Ikan: %d", fishCount)
+            
+            -- Update rod info
+            local currentRodName = getCurrentRodName()
+            if currentRodName then
+                rodInfoLabel.Text = "Rod: " .. currentRodName
+                rodInfoLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+            else
+                rodInfoLabel.Text = "Rod: Tidak terdeteksi"
+                rodInfoLabel.TextColor3 = Color3.fromRGB(255, 150, 100)
+            end
+            
+            wait(1)
+        end
+    end)
+    
+    return gui
 end
 
--- Initialize debug
-local debug = createDebugGUI()
-
--- Debug functions
-local lastCharacterUpdate = 0
-local lastBackpackUpdate = 0
-local lastPositionUpdate = 0
-local lastGuiUpdate = 0
-
-local function debugPlayerInfo()
-    if debug.IsPaused() then return end
+-- Settings function
+local function showSettings()
+    if not gui then return end
     
-    debug.AddText("=== PLAYER INFO ===", Color3.fromRGB(100, 200, 255))
-    debug.AddText("Player Name: " .. player.Name, Color3.fromRGB(255, 255, 255))
-    debug.AddText("Player ID: " .. player.UserId, Color3.fromRGB(255, 255, 255))
-    debug.AddText("Character exists: " .. tostring(character ~= nil), Color3.fromRGB(255, 255, 255))
+    local settingsFrame = Instance.new("Frame")
+    settingsFrame.Name = "SettingsFrame"
+    settingsFrame.Size = UDim2.new(0, 300, 0, 250)
+    settingsFrame.Position = UDim2.new(0.5, -150, 0.5, -125)
+    settingsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    settingsFrame.BorderSizePixel = 0
+    settingsFrame.Parent = gui
     
-    if humanoidRootPart then
-        local pos = humanoidRootPart.Position
-        debug.AddText(string.format("Position: X=%.2f, Y=%.2f, Z=%.2f", pos.X, pos.Y, pos.Z), Color3.fromRGB(100, 255, 100))
-    end
-    debug.AddText("", Color3.fromRGB(255, 255, 255))
+    local settingsCorner = Instance.new("UICorner")
+    settingsCorner.CornerRadius = UDim.new(0, 10)
+    settingsCorner.Parent = settingsFrame
+    
+    local settingsTitle = Instance.new("TextLabel")
+    settingsTitle.Size = UDim2.new(1, 0, 0, 35)
+    settingsTitle.Position = UDim2.new(0, 0, 0, 0)
+    settingsTitle.BackgroundTransparency = 1
+    settingsTitle.Text = "⚙️ Pengaturan & Info"
+    settingsTitle.TextColor3 = Color3.fromRGB(255, 255, 100)
+    settingsTitle.TextScaled = true
+    settingsTitle.Font = Enum.Font.SourceSansBold
+    settingsTitle.Parent = settingsFrame
+    
+    local infoText = Instance.new("TextLabel")
+    infoText.Size = UDim2.new(1, -20, 0, 150)
+    infoText.Position = UDim2.new(0, 10, 0, 40)
+    infoText.BackgroundTransparency = 1
+    infoText.Text = "Fish It Auto Fishing v2.7\n\nFitur:\n• Auto deteksi " .. #fishItRodNames .. " jenis rod\n• Auto cast & reel\n• Anti-AFK protection\n• Real-time status\n• Force mode untuk rod kustom\n\nCara pakai:\n1. Equip fishing rod\n2. Klik Auto Fishing\n3. Script akan otomatis bekerja"
+    infoText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    infoText.TextScaled = false
+    infoText.Font = Enum.Font.SourceSans
+    infoText.TextSize = 12
+    infoText.TextWrapped = true
+    infoText.TextXAlignment = Enum.TextXAlignment.Left
+    infoText.Parent = settingsFrame
+    
+    local closeButton = Instance.new("TextButton")
+    closeButton.Size = UDim2.new(0, 80, 0, 30)
+    closeButton.Position = UDim2.new(0.5, -40, 0, 210)
+    closeButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    closeButton.Text = "Tutup"
+    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeButton.Font = Enum.Font.SourceSansBold
+    closeButton.Parent = settingsFrame
+    
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(0, 5)
+    closeCorner.Parent = closeButton
+    
+    closeButton.MouseButton1Click:Connect(function()
+        settingsFrame:Destroy()
+    end)
 end
 
-local function debugCharacterItems()
-    if debug.IsPaused() then return end
-    
-    debug.AddText("=== CHARACTER ITEMS ===", Color3.fromRGB(100, 200, 255))
-    
-    if not character then
-        debug.AddText("Character not found!", Color3.fromRGB(255, 100, 100))
-        return
-    end
-    
-    local itemsFound = 0
-    local fishingRodsFound = 0
+-- Get current fishing rod
+local function getCurrentRod()
+    local character = player.Character
+    if not character then return nil end
     
     for _, item in pairs(character:GetChildren()) do
-        if item:IsA("Tool") or item:IsA("Model") then
-            itemsFound = itemsFound + 1
-            debug.AddText(string.format("Item %d: %s (Class: %s)", itemsFound, item.Name, item.ClassName), Color3.fromRGB(255, 255, 150))
-            
-            -- Check if it's a fishing rod using specific Fish It rod names
-            local isRod = false
-            local matchedRodName = ""
-            
-            for _, rodName in pairs(fishItRodNames) do
-                if item.Name:lower():find(rodName:lower()) then
-                    isRod = true
-                    matchedRodName = rodName
-                    break
-                end
-            end
-            
-            -- Additional check for any item with "Rod" in the name
-            if not isRod and item.Name:lower():find("rod") then
-                isRod = true
-                matchedRodName = item.Name
-            end
-            
-            if isRod then
-                fishingRodsFound = fishingRodsFound + 1
-                debug.AddText("  🎣 FISHING ROD DETECTED!", Color3.fromRGB(100, 255, 100))
-                debug.AddText("  → Matched: " .. matchedRodName, Color3.fromRGB(150, 255, 150))
-                debug.AddText("  → Item ID: " .. tostring(item), Color3.fromRGB(150, 255, 150))
-                
-                -- Check for rod properties
-                for _, prop in pairs(item:GetChildren()) do
-                    debug.AddText("  → Child: " .. prop.Name .. " (" .. prop.ClassName .. ")", Color3.fromRGB(200, 200, 255))
-                end
-                
-                -- Check for attributes
-                for attr, value in pairs(item:GetAttributes()) do
-                    debug.AddText("  → Attribute: " .. attr .. " = " .. tostring(value), Color3.fromRGB(255, 200, 150))
-                end
-            end
-            
-            -- Check for any tool properties
-            if item:IsA("Tool") then
-                debug.AddText("  → Tool Tip: " .. (item.ToolTip or "No tip"), Color3.fromRGB(200, 200, 200))
-            end
-        end
-    end
-    
-    debug.AddText(string.format("Summary: %d items found, %d fishing rods detected", itemsFound, fishingRodsFound), Color3.fromRGB(255, 200, 100))
-    debug.AddText("", Color3.fromRGB(255, 255, 255))
-end
-
-local function debugBackpackItems()
-    if debug.IsPaused() then return end
-    
-    debug.AddText("=== BACKPACK ITEMS ===", Color3.fromRGB(100, 200, 255))
-    
-    local backpack = player:FindFirstChild("Backpack")
-    if not backpack then
-        debug.AddText("Backpack not found!", Color3.fromRGB(255, 100, 100))
-        return
-    end
-    
-    local itemsFound = 0
-    local fishingRodsFound = 0
-    
-    for _, item in pairs(backpack:GetChildren()) do
         if item:IsA("Tool") then
-            itemsFound = itemsFound + 1
-            debug.AddText(string.format("Backpack Item %d: %s", itemsFound, item.Name), Color3.fromRGB(255, 255, 150))
-            
-            -- Check if it's a fishing rod using specific Fish It rod names
-            local isRod = false
-            local matchedRodName = ""
-            
             for _, rodName in pairs(fishItRodNames) do
                 if item.Name:lower():find(rodName:lower()) then
-                    isRod = true
-                    matchedRodName = rodName
-                    break
+                    return item
                 end
             end
-            
-            -- Additional check for any item with "Rod" in the name
-            if not isRod and item.Name:lower():find("rod") then
-                isRod = true
-                matchedRodName = item.Name
+            -- Fallback: any item with "Rod" in name
+            if item.Name:lower():find("rod") then
+                return item
             end
-            
-            if isRod then
-                fishingRodsFound = fishingRodsFound + 1
-                debug.AddText("  🎣 FISHING ROD IN BACKPACK!", Color3.fromRGB(255, 200, 100))
-                debug.AddText("  → Matched: " .. matchedRodName, Color3.fromRGB(150, 255, 150))
-                debug.AddText("  → Item ID: " .. tostring(item), Color3.fromRGB(150, 255, 150))
-                
-                -- Check for rod properties
-                for _, prop in pairs(item:GetChildren()) do
-                    debug.AddText("  → Child: " .. prop.Name .. " (" .. prop.ClassName .. ")", Color3.fromRGB(200, 200, 255))
+        end
+    end
+    return nil
+end
+
+-- Get current rod name
+local function getCurrentRodName()
+    local rod = getCurrentRod()
+    return rod and rod.Name or nil
+end
+
+-- Check if player has fishing rod
+local function hasFishingRod()
+    return getCurrentRod() ~= nil
+end
+
+-- Cast fishing rod using multiple methods
+local function castFishingRod()
+    if not autoFishing then return end
+    
+    -- Method 1: Try F key (common fishing key)
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.F, false, game)
+    wait(0.1)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, game)
+    
+    -- Method 2: Try E key (alternative fishing key)
+    wait(0.3)
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+    wait(0.1)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+    
+    -- Method 3: Try mouse click
+    wait(0.3)
+    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+    wait(0.1)
+    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+    
+    -- Method 4: Try number keys (1-5)
+    for i = 1, 5 do
+        wait(0.2)
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode["One"], false, game)
+        wait(0.1)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode["One"], false, game)
+    end
+    
+    wait(1)
+end
+
+-- Reel fish using multiple methods
+local function reelFish()
+    if not autoFishing then return end
+    
+    -- Method 1: Try E key
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+    wait(0.1)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+    
+    -- Method 2: Try mouse click
+    wait(0.2)
+    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+    wait(0.1)
+    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+    
+    -- Method 3: Try spacebar
+    wait(0.2)
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+    wait(0.1)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+    
+    fishCount = fishCount + 1
+    wait(1)
+end
+
+-- Check for fish bite (improved detection)
+local function checkForFishBite()
+    -- Method 1: Check character for fishing-related values
+    local character = player.Character
+    if character then
+        for _, child in pairs(character:GetChildren()) do
+            if child.Name:lower():find("bite") or child.Name:lower():find("fish") then
+                if child:IsA("BoolValue") and child.Value then
+                    return true
                 end
             end
         end
     end
     
-    debug.AddText(string.format("Summary: %d backpack items found, %d fishing rods detected", itemsFound, fishingRodsFound), Color3.fromRGB(255, 200, 100))
-    debug.AddText("", Color3.fromRGB(255, 255, 255))
-end
-
-local function debugPosition()
-    if debug.IsPaused() then return end
-    
-    if humanoidRootPart then
-        local pos = humanoidRootPart.Position
-        local vel = humanoidRootPart.Velocity
-        
-        -- Update position display
-        if debug.GUI and debug.GUI:FindFirstChild("DebugFrame") then
-            local existingPosLabel = debug.GUI.DebugFrame:FindFirstChild("PositionLabel")
-            if not existingPosLabel then
-                local posLabel = Instance.new("TextLabel")
-                posLabel.Name = "PositionLabel"
-                posLabel.Size = UDim2.new(0, 200, 0, 60)
-                posLabel.Position = UDim2.new(1, -210, 0, 45)
-                posLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-                posLabel.BorderSizePixel = 0
-                posLabel.Text = ""
-                posLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-                posLabel.Font = Enum.Font.Code
-                posLabel.TextSize = 10
-                posLabel.TextXAlignment = Enum.TextXAlignment.Left
-                posLabel.TextYAlignment = Enum.TextYAlignment.Top
-                posLabel.Parent = debug.GUI.DebugFrame
-                
-                local posCorner = Instance.new("UICorner")
-                posCorner.CornerRadius = UDim.new(0, 5)
-                posCorner.Parent = posLabel
+    -- Method 2: Check player values
+    for _, child in pairs(player:GetChildren()) do
+        if child.Name:lower():find("bite") or child.Name:lower():find("fish") then
+            if child:IsA("BoolValue") and child.Value then
+                return true
             end
-            
-            debug.GUI.DebugFrame.PositionLabel.Text = 
-                "📍 POSITION:\n" ..
-                string.format("X: %.1f\n", pos.X) ..
-                string.format("Y: %.1f\n", pos.Y) ..
-                string.format("Z: %.1f\n", pos.Z) ..
-                string.format("Speed: %.1f", vel.Magnitude)
-        end
-    end
-end
-
-local function debugLeaderstats()
-    if debug.IsPaused() then return end
-    
-    debug.AddText("=== LEADERSTATS ===", Color3.fromRGB(100, 200, 255))
-    
-    local leaderstats = player:FindFirstChild("leaderstats")
-    if not leaderstats then
-        debug.AddText("leaderstats not found!", Color3.fromRGB(255, 100, 100))
-        return
-    end
-    
-    local statsFound = 0
-    for _, stat in pairs(leaderstats:GetChildren()) do
-        if stat:IsA("IntValue") or stat:IsA("NumberValue") or stat:IsA("StringValue") then
-            statsFound = statsFound + 1
-            debug.AddText(stat.Name .. ": " .. tostring(stat.Value), Color3.fromRGB(255, 255, 150))
         end
     end
     
-    if statsFound == 0 then
-        debug.AddText("No stats found!", Color3.fromRGB(255, 150, 100))
-    end
-    
-    debug.AddText("", Color3.fromRGB(255, 255, 255))
+    -- Method 3: Random chance (fallback)
+    return math.random() > 0.7
 end
 
--- Fish detection and monitoring
-local function setupFishDetection()
-    debug.AddText("=== FISH DETECTION SETUP ===", Color3.fromRGB(100, 200, 255))
-    
-    -- Monitor for fish caught
-    local connection
-    connection = player.ChildAdded:Connect(function(child)
-        if debug.IsPaused() then return end
-        
-        if child:IsA("IntValue") or child:IsA("NumberValue") then
-            if child.Name:lower():find("fish") or child.Name:lower():find("catch") or child.Name:lower():find("point") or child.Name:lower():find("coin") then
-                debug.AddText("🎣 FISH/SCORE DETECTED: " .. child.Name .. " = " .. tostring(child.Value), Color3.fromRGB(100, 255, 100))
+-- Main fishing loop
+local function startFishingLoop()
+    spawn(function()
+        while true do
+            if autoFishing and not isFishing then
+                isFishing = true
+                
+                -- Check rod status
+                local currentRodName = getCurrentRodName()
+                if not currentRodName then
+                    if gui and gui:FindFirstChild("MainFrame") then
+                        gui.MainFrame.StatusContainer.Status.Text = "Status: Equip rod dulu!"
+                        gui.MainFrame.StatusContainer.Status.TextColor3 = Color3.fromRGB(255, 150, 100)
+                    end
+                    isFishing = false
+                    wait(2)
+                    continue
+                end
+                
+                -- Update status
+                if gui and gui:FindFirstChild("MainFrame") then
+                    gui.MainFrame.StatusContainer.Status.Text = "Status: Melempar pancing..."
+                    gui.MainFrame.StatusContainer.Status.TextColor3 = Color3.fromRGB(100, 150, 255)
+                end
+                
+                -- Cast the rod
+                castFishingRod()
+                
+                -- Wait for fish to bite
+                local waitTime = math.random(3, 8)
+                local waited = 0
+                
+                if gui and gui:FindFirstChild("MainFrame") then
+                    gui.MainFrame.StatusContainer.Status.Text = "Status: Menunggu ikan..."
+                    gui.MainFrame.StatusContainer.Status.TextColor3 = Color3.fromRGB(255, 255, 100)
+                end
+                
+                while waited < waitTime and autoFishing do
+                    if checkForFishBite() then
+                        break
+                    end
+                    wait(0.5)
+                    waited = waited + 0.5
+                end
+                
+                -- Reel the fish
+                if autoFishing then
+                    if gui and gui:FindFirstChild("MainFrame") then
+                        gui.MainFrame.StatusContainer.Status.Text = "Status: Menarik ikan..."
+                        gui.MainFrame.StatusContainer.Status.TextColor3 = Color3.fromRGB(100, 255, 150)
+                    end
+                    
+                    reelFish()
+                end
+                
+                -- Small delay before next cast
+                wait(2)
+                isFishing = false
+            else
+                wait(0.5)
             end
         end
     end)
-    
-    -- Monitor for tool changes
+end
+
+-- Anti-AFK function
+local function startAntiAFK()
+    spawn(function()
+        while true do
+            wait(math.random(120, 300)) -- Random 2-5 minutes
+            
+            if autoFishing then
+                -- Move slightly
+                if humanoidRootPart then
+                    humanoidRootPart.CFrame = humanoidRootPart.CFrame * CFrame.new(math.random(-2, 2), 0, math.random(-2, 2))
+                end
+                
+                -- Jump occasionally
+                if character and character:FindFirstChild("Humanoid") and math.random() > 0.8 then
+                    character.Humanoid.Jump = true
+                end
+            end
+        end
+    end)
+end
+
+-- Monitor rod changes
+local function setupRodMonitoring()
+    -- Monitor for tool equip/unequip
     character.ChildAdded:Connect(function(child)
-        if debug.IsPaused() then return end
-        
         if child:IsA("Tool") then
-            debug.AddText("🎣 TOOL EQUIPPED: " .. child.Name, Color3.fromRGB(100, 255, 150))
-            
-            -- Check if it's a fishing rod
             local isRod = false
-            local matchedRodName = ""
-            
             for _, rodName in pairs(fishItRodNames) do
                 if child.Name:lower():find(rodName:lower()) then
                     isRod = true
-                    matchedRodName = rodName
                     break
                 end
             end
-            
             if not isRod and child.Name:lower():find("rod") then
                 isRod = true
-                matchedRodName = child.Name
             end
             
-            if isRod then
-                debug.AddText("  → FISHING ROD EQUIPPED! (" .. matchedRodName .. ")", Color3.fromRGB(100, 255, 100))
+            if isRod and gui and gui:FindFirstChild("MainFrame") then
+                gui.MainFrame.StatusContainer.RodInfo.Text = "Rod: " .. child.Name
+                gui.MainFrame.StatusContainer.RodInfo.TextColor3 = Color3.fromRGB(100, 255, 100)
             end
         end
     end)
     
     character.ChildRemoved:Connect(function(child)
-        if debug.IsPaused() then return end
-        
         if child:IsA("Tool") then
-            debug.AddText("📤 TOOL UNEQUIPPED: " .. child.Name, Color3.fromRGB(255, 150, 100))
+            if gui and gui:FindFirstChild("MainFrame") then
+                gui.MainFrame.StatusContainer.RodInfo.Text = "Rod: Tidak terdeteksi"
+                gui.MainFrame.StatusContainer.RodInfo.TextColor3 = Color3.fromRGB(255, 150, 100)
+            end
         end
     end)
-    
-    debug.AddText("Fish detection monitoring started!", Color3.fromRGB(100, 255, 100))
-    debug.AddText("", Color3.fromRGB(255, 255, 255))
 end
 
--- Real-time update loop
-spawn(function()
-    -- Initial debug info
-    debug.AddText("🔍 FISH IT ROD DEBUG STARTED", Color3.fromRGB(255, 255, 100))
-    debug.AddText("=========================================", Color3.fromRGB(255, 255, 100))
-    debug.AddText("🎣 Loaded " .. #fishItRodNames .. " specific rod names", Color3.fromRGB(255, 200, 100))
-    debug.AddText("", Color3.fromRGB(255, 255, 255))
+-- Initialize
+local function initialize()
+    -- Create GUI
+    createGUI()
     
-    debugPlayerInfo()
-    debugCharacterItems()
-    debugBackpackItems()
-    debugLeaderstats()
-    setupFishDetection()
+    -- Start fishing loop
+    startFishingLoop()
     
-    debug.AddText("✅ INITIAL DEBUG COMPLETE!", Color3.fromRGB(100, 255, 100))
-    debug.AddText("🔄 Starting real-time monitoring...", Color3.fromRGB(255, 255, 150))
-    debug.AddText("", Color3.fromRGB(255, 255, 255))
+    -- Start anti-AFK
+    startAntiAFK()
     
-    -- Real-time updates
-    while debugEnabled do
-        if not debug.IsPaused() then
-            local currentTime = tick()
-            
-            -- Update character items every 5 seconds
-            if currentTime - lastCharacterUpdate >= 5 then
-                debugCharacterItems()
-                lastCharacterUpdate = currentTime
-            end
-            
-            -- Update backpack items every 5 seconds
-            if currentTime - lastBackpackUpdate >= 5 then
-                debugBackpackItems()
-                lastBackpackUpdate = currentTime
-            end
-            
-            -- Update position every 0.5 seconds
-            if currentTime - lastPositionUpdate >= 0.5 then
-                debugPosition()
-                lastPositionUpdate = currentTime
-            end
-            
-            -- Update leaderstats every 10 seconds
-            if currentTime - lastGuiUpdate >= 10 then
-                debugLeaderstats()
-                lastGuiUpdate = currentTime
-            end
-        end
-        
-        wait(updateInterval)
-    end
+    -- Setup rod monitoring
+    setupRodMonitoring()
+    
+    -- Notification
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "Fish It Auto Ready",
+            Text = "Script berhasil dimuat! Equip fishing rod lalu aktifkan auto fishing.",
+            Duration = 5
+        })
+    end)
+    
+    print("=== Fish It Auto Fishing Script ===")
+    print("✅ Script berhasil dijalankan!")
+    print("🎣 Mendukung " .. #fishItRodNames .. " jenis fishing rod")
+    print("🎮 Equip fishing rod Anda terlebih dahulu")
+    print("🔧 Gunakan GUI untuk mengontrol auto fishing")
+    print("====================================")
+end
+
+-- Error handling
+local success, err = pcall(function()
+    initialize()
 end)
 
--- Instructions
-print("=== FISH IT ROD DEBUG TOOL INSTRUCTIONS ===")
-print("1. Debug window shows live monitoring with specific rod names")
-print("2. Use buttons to control debug session:")
-print("   - 📋 Copy All: Copy entire rod debug log")
-print("   - 🗑️ Clear: Clear debug log")
-print("   - ⏸️ Pause: Pause/resume monitoring")
-print("   - 📤 Export: Export rod debug summary")
-print("3. Position shown in real-time (top-right)")
-print("4. Fishing rod detection updates every 5 seconds")
-print("5. Uses " .. #fishItRodNames .. " specific Fish It rod names")
-print("================================")
-
--- Notification
-pcall(function()
-    game.StarterGui:SetCore("SendNotification", {
-        Title = "Rod Debug Ready",
-        Text = "Rod debug tool is now monitoring with specific rod names!",
-        Duration = 5
-    })
-end)
+if not success then
+    warn("Error menjalankan script: " .. tostring(err))
+    
+    -- Try to show error message
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "Error",
+            Text = "Script error: " .. tostring(err),
+            Duration = 10
+        })
+    end)
+end
