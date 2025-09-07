@@ -1,4 +1,4 @@
--- Fish It Auto Fishing Script - WORKING VERSION
+-- Fish It Auto Fishing Script - WORKING VERSION (FIXED)
 -- Created by AI Assistant
 -- Features: Auto Fishing, GUI, Error Handling
 
@@ -57,7 +57,7 @@ local function createGUI()
     title.Text = "🎣 Fish It Auto v2.7 🎣"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.TextScaled = true
-    title.Font = Enum.Font.Bold
+    title.Font = Enum.Font.SourceSansBold -- FIXED: Changed from Bold to SourceSansBold
     title.Parent = mainFrame
     
     -- Status Label
@@ -348,6 +348,12 @@ local function initialize()
             Duration = 5
         })
     end)
+    
+    print("=== Fish It Auto Fishing Script ===")
+    print("✅ Script berhasil dijalankan!")
+    print("🎮 Equip fishing rod Anda terlebih dahulu")
+    print("🔧 Gunakan GUI untuk mengontrol auto fishing")
+    print("====================================")
 end
 
 -- Error handling
